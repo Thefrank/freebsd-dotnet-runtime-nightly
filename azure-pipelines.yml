@@ -162,7 +162,7 @@ stages:
              targetType: 'inline'
              script: |
               set -e
-              dotnet-freebsd-native/bsd_dotnet_install.sh $(System.ArtifactsDirectory)/${{ parameters.sdkDownload }} runtime
+              freebsd-dotnet-runtime-nightly/bsd_dotnet_install.sh $(System.ArtifactsDirectory)/${{ parameters.sdkDownload }} runtime
               runtime/.dotnet/dotnet nuget add source $(System.ArtifactsDirectory) --name local --configfile runtime/NuGet.config
               sed -i.ORI -E 's/netcoreapp3\.0\;netcoreapp3\.1/net6/' runtime/src/installer/tests/Assets/TestProjects/StandaloneApp3x/StandaloneApp3x.csproj
             displayName: Install bootstrap SDK and NuGet
