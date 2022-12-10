@@ -21,6 +21,9 @@ So, what is here?
 - This produces no outputs here on GH but you should be able to view up to 30 days of test results.
 - Currently, only FreeBSD-x64 builds are done. I do not have the hardware for FreeBSD-ARM64
 
+Where???
+- Here: https://dev.azure.com/IFailAt/freebsd-dotnet-runtime-nightly/_build?definitionId=17
+
 Is this something I can run myself?
 - Yes, but it needs Azure Pipelines Agent for FreeBSD-x64 (https://github.com/Thefrank/azure-pipelines-agent-freebsd). See the YML file for more information.
 - If you want to take over this task, or donate VM space please contact me. A 10yr old server works great as a space-heater when its cold outside but a terrible air conditioning system when its hot out.
