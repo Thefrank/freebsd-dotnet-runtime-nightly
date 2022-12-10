@@ -1,0 +1,239 @@
+#This YML assumes that you have an enviroment and depencies already installed to facilitate running and building dotNET under FreeBSD AMD64
+#Unlike a crossbuild that can use Microsoft's Docker containers, native builds can not.
+#Testing is only supported natively and we don't have access to the "Helix" system that Microsoft uses for its officially supported platforms
+#https://github.com/dotnet/runtime/blob/main/docs/workflow/requirements/freebsd-requirements.md
+#and yes templating with more variables would look nicer but I am lazier
+parameters:
+- name: runtimeTag
+  displayName: Tag for build (info only)
+  type: string
+  default: 8.0.0-alpha
+- name: bootstrapRepo
+  displayName: Repo to download bootstrap packages
+  type: string
+  default: Thefrank/dotnet-freebsd-crossbuild
+- name: bootstrapTag
+  displayName: Tag to download bootstrap packages
+  type: string
+  default: v7.0.100-rtm.22521.12-15
+- name: sdkDownload
+  displayName: Bootstrap SDK to download
+  type: string
+  default: dotnet-sdk-7.0.100-freebsd-x64.tar.gz
+- name: runTests
+  displayName: Tests to Run
+  type: string
+  default: complete
+  values:
+    - none
+    - simple
+    - complete
+- name: extraNugets
+  displayName: BUILDID/TAG to download for IL(D)Asm
+  type: string
+  default: v8.0.0-alpha.1.22559.2
+- name: extraNugetsRepo
+  displayName: Repo for IL(D)Asm
+  type: string
+  default: Thefrank/dotnet-freebsd-crossbuild
+- name: testNet6Nugets
+  displayName: Nuget from SDK version 6 needed for tests
+  type: string
+  default: v6.0.401-11
+- name: testNet6NugetsRepo
+  displayName: Repo for SDK version 6 needed for tests
+  type: string
+  default: Thefrank/dotnet-freebsd-crossbuild
+- name: publishArtifacts
+  displayName: Publish Output to Pipeline
+  type: boolean
+  default: false
+
+trigger: none
+
+schedules:
+- cron: "0 0 * * *"
+  displayName: Daily midnight build
+  branches:
+    include:
+    - main
+
+pool:
+  name: Default
+  demands:
+  - agent.os -equals FreeBSD
+
+#runtime is where we download the source to build
+#crossbuild is where this downloads all patches it uses
+resources:
+  repositories:
+  - repository: runtime
+    type: github
+    endpoint: Thefrank
+    name: dotnet/runtime
+    ref: main
+  - repository: crossbuild
+    type: github
+    endpoint: Thefrank
+    name: Thefrank/dotnet-freebsd-crossbuild
+    ref: main
+  
+
+variables:
+  runCounter: $[counter('runNumber', 1)]
+
+stages:
+  - stage: Setup
+    dependsOn: []
+    jobs:
+      - job: init
+        timeoutInMinutes: 120
+        steps:
+        - task: Bash@3
+          inputs:
+            targetType: 'inline'
+            script: |
+              set -e
+              TAG=${{ parameters.runtimeTag }}
+              echo "##vso[build.updatebuildnumber]${TAG/\//-}--${RUNCOUNTER}"
+          displayName: Set Build Name
+#Timeout at 240min because tests can hang
+  - stage: Runtime
+    dependsOn: [Setup]
+    jobs:
+      - job: Runtime
+        timeoutInMinutes: 240
+        workspace:
+          clean: outputs
+        steps:
+          - checkout: self
+          - task: DownloadGitHubRelease@0
+            inputs:
+              connection: 'Thefrank'
+              userRepository: '${{ parameters.bootstrapRepo }}'
+              defaultVersionType: 'specificTag'
+              version: '${{ parameters.bootstrapTag }}'
+              itemPattern: '**freebsd**'
+              downloadPath: '$(System.ArtifactsDirectory)'
+            displayName: Download bootstrap SDK and NuGet
+          - task: DownloadGitHubRelease@0
+            condition: or(eq('${{ parameters.runTests }}', 'simple'), eq('${{ parameters.runTests }}', 'complete'))
+            inputs:
+              connection: 'Thefrank'
+              userRepository: '${{ parameters.extraNugetsRepo }}'
+              defaultVersionType: 'specificTag'
+              version: '${{ parameters.extraNugets }}'
+              itemPattern: 
+              downloadPath: '$(System.ArtifactsDirectory)'
+            displayName: Download bootstrap SDK and NuGet
+          - task: DownloadGitHubRelease@0
+            condition: or(eq('${{ parameters.runTests }}', 'simple'), eq('${{ parameters.runTests }}', 'complete'))
+            inputs:
+              connection: 'Thefrank'
+              userRepository: '${{ parameters.testNet6NugetsRepo }}'
+              defaultVersionType: 'specificTag'
+              version: '${{ parameters.testNet6Nugets }}'
+              itemPattern: '**nupkg**'
+              downloadPath: '$(System.ArtifactsDirectory)'
+            displayName: Download NuGets for tests
+          - checkout: runtime
+          - checkout: crossbuild
+#CPU_COUNT needs upstream and/or more investigation
+#https://github.com/dotnet/runtime/pull/77867
+#Additional patches are for: removing internal-use-only Microsoft feeds, adding freebsd into the testing systems, generating "Crossgen2" output
+          - task: Bash@3
+            inputs:
+             targetType: 'inline'
+             script: |
+               set -e
+               sed -i.ORI '/\/dnceng\/internal\//d' runtime/NuGet.config
+               sed -i.ORI -E '150,170s/CPU_COUNT\(\(void \*\) 0\)/CPU_COUNT\(\(cpuset_t \*\) 0\)/' runtime/src/mono/cmake/configure.cmake
+               patch -d runtime -p 1 < dotnet-freebsd-crossbuild/patches/patch_runtimetests.patch
+               patch -d runtime -p 1 < dotnet-freebsd-crossbuild/patches/patch_runtimecrossgen.patch
+            displayName: Checkout and patch runtime
+#Add in freebsd RID needed
+#If using my SDKs that are "vSDK-BUILD" some stripping might be needed:
+#SDKVer=$(sed 's/^.//;s/...$//'<<< ${{ parameters.bootstrapTag }})
+#If using an SDK that does not already have freebsd-x64 support use the following:
+#sed -i.ORI -E 's/linux-x64/linux-x64;freebsd-x64/' runtime/.dotnet/sdk/$SDKVer/Microsoft.NETCoreSdk.BundledVersions.props
+#remove netcore3.0 from tests as freebsd doesn't have it
+          - task: Bash@3
+            inputs:
+             targetType: 'inline'
+             script: |
+              set -e
+              dotnet-freebsd-native/bsd_dotnet_install.sh $(System.ArtifactsDirectory)/${{ parameters.sdkDownload }} runtime
+              runtime/.dotnet/dotnet nuget add source $(System.ArtifactsDirectory) --name local --configfile runtime/NuGet.config
+              sed -i.ORI -E 's/netcoreapp3\.0\;netcoreapp3\.1/net6/' runtime/src/installer/tests/Assets/TestProjects/StandaloneApp3x/StandaloneApp3x.csproj
+            displayName: Install bootstrap SDK and NuGet
+#No tests: This just builds all legs currently supported by runtime under freebsd-x64
+#Failures here mean something is wrong and needs investigation
+          - task: Bash@3
+            condition: eq('${{ parameters.runTests }}', 'none')
+            inputs:
+             targetType: 'inline'
+             script: |
+              set -e
+              runtime/build.sh /p:OfficialBuildId=$(date +%Y%m%d)-99 -ci -c Release -subset Clr+Mono+Host+Libs+Packs -bl:$(Build.SourcesDirectory)/runtime/artifacts/log/BuildStep.binlog
+            continueOnError: false
+            displayName: Build Runtime No Tests
+#Simple tests: This is done in two steps: build everything from 'none'+tests then run tests. 
+#These are more of "does it build" than "does it work correctly"
+#Failures here are rare and usually mean the SDK(s) used need updates
+          - task: Bash@3
+            condition: eq('${{ parameters.runTests }}', 'simple')
+            inputs:
+             targetType: 'inline'
+             script: |
+              set -e
+              mkdir $(Build.ArtifactStagingDirectory)/TestResults/
+              runtime/build.sh /p:OfficialBuildId=$(date +%Y%m%d)-99 -ci -c Release -subset Clr+Mono+Host+Libs+Libs.Tests+Packs -bl:$(Build.SourcesDirectory)/runtime/artifacts/log/BuildStep.binlog
+              runtime/build.sh /p:OfficialBuildId=$(date +%Y%m%d)-99 -ci -c Release --test --testnobuild -bl:$(Build.SourcesDirectory)/runtime/artifacts/log/TestStep.binlog
+            continueOnError: true
+            displayName: Build Runtime Run Simple Tests
+#Complete tests: Builds everything support and all supported tests. Runs all supported tests
+#Failures here are typically test failure
+          - task: Bash@3
+            condition: eq('${{ parameters.runTests }}', 'complete')
+            inputs:
+             targetType: 'inline'
+             script: |
+              set -e
+              mkdir $(Build.ArtifactStagingDirectory)/TestResults/
+              runtime/build.sh /p:OfficialBuildId=$(date +%Y%m%d)-99 -ci -c Release -subset Clr+Mono+Host+Libs+Libs.Tests+Packs --test -bl:$(Build.SourcesDirectory)/runtime/artifacts/log/CombinedStep.binlog
+            continueOnError: true
+            displayName: Build Runtime Run Complete Tests
+          - task: PublishPipelineArtifact@1
+            condition: eq('${{ parameters.publishArtifacts }}', 'true')
+            inputs:
+              targetPath: '$(Build.SourcesDirectory)/runtime/artifacts/packages/Release/Shipping'
+              artifact: 'RuntimePackages-$(runCounter)'
+              publishLocation: 'pipeline'
+            displayName: Publish Runtime Artifacts
+          - task: PublishPipelineArtifact@1
+            condition: succeededOrFailed()
+            inputs:
+              targetPath: '$(Build.SourcesDirectory)/runtime/artifacts/log'
+              artifact: 'RuntimeLogs-$(runCounter)'
+              publishLocation: 'pipeline'
+            displayName: Publish Build Logs 
+          - task: PublishTestResults@2
+            condition: succeededOrFailed()
+            inputs:
+              testResultsFormat: 'XUnit'
+              testResultsFiles: '**/testResults.xml'
+              searchFolder: '$(Build.SourcesDirectory)/runtime/artifacts/bin'
+              testRunTitle: 'Runtime Test Results'
+              buildPlatform: 'FreeBSD 13.1 (TrueNAS 13.1-U3)'
+              buildConfiguration: 'AMD64'
+            displayName: Publish XUnit Tests
+          - task: PublishTestResults@2
+            condition: succeededOrFailed()
+            inputs:
+              testResultsFormat: 'VSTest'
+              testResultsFiles: '**/*Tests*.trx'
+              searchFolder: '$(Build.SourcesDirectory)/runtime/artifacts/TestResults/Release/'
+              testRunTitle: 'Runtime Test Results'
+              buildPlatform: 'FreeBSD 13.1 (TrueNAS 13.1-U3)'
+              buildConfiguration: 'AMD64'
+            displayName: Publish VSTest Tests
