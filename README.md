@@ -24,6 +24,13 @@ So, what is here?
 Where???
 - Here: https://dev.azure.com/IFailAt/freebsd-dotnet-runtime-nightly/_build?definitionId=17
 
+So, What environment is this actually run under?
+- FreeBSD 13.1-pCurrent AMD64 inside a jail under TrueNAS 13.1
+
+Are there any significant differences between using TrueNAS and FreeBSD?
+- There should not be but I am tracking an issue with dotNET that appears only under TrueNAS and not FreeBSD
+- See here: https://github.com/sec/dotnet-core-freebsd-source-build/issues/15
+
 Is this something I can run myself?
 - Yes, but it needs Azure Pipelines Agent for FreeBSD-x64 (https://github.com/Thefrank/azure-pipelines-agent-freebsd). See the YML file for more information.
 - If you want to take over this task, or donate VM space please contact me. A 10yr old server works great as a space-heater when its cold outside but a terrible air conditioning system when its hot out.
