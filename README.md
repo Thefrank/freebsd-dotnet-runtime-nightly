@@ -24,6 +24,9 @@ So, what is here?
 Where???
 - Here: https://dev.azure.com/IFailAt/freebsd-dotnet-runtime-nightly/_build?definitionId=17
 
+Things are missing!
+- Every 2-3 weeks the build will break because of upstream dependencies requiring updates. I can usually get to this within a day. If I get too far behind open a ticket.
+
 So, What environment is this actually run under?
 - FreeBSD 13.1-pCurrent AMD64 inside a jail under TrueNAS 13.1
 
