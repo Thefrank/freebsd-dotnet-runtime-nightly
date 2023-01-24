@@ -138,20 +138,20 @@ stages:
             displayName: Download NuGets for tests
           - checkout: runtime
           - checkout: crossbuild
-#patches are for: removing internal-use-only Microsoft feeds
+#patches are for: removing internal-use-only Microsoft feeds, objwriter is not built by MS so we clobber a line for it
           - task: Bash@3
             inputs:
              targetType: 'inline'
              script: |
                set -e
                sed -i.ORI '/\/dnceng\/internal\//d' runtime/NuGet.config
+               sed -i.ORI 's/runtimeosx1012x64MicrosoftNETCoreRuntimeObjWriterVersion/runtimefreebsdx64MicrosoftNETCoreRuntimeObjWriterVersion/' eng/Versions.props
             displayName: Checkout and patch runtime
 #Add in freebsd RID needed
 #If using my SDKs that are "vSDK-BUILD" some stripping might be needed:
 #SDKVer=$(sed 's/^.//;s/...$//'<<< ${{ parameters.bootstrapTag }})
 #If using an SDK that does not already have freebsd-x64 support use the following:
 #sed -i.ORI -E 's/linux-x64/linux-x64;freebsd-x64/' runtime/.dotnet/sdk/$SDKVer/Microsoft.NETCoreSdk.BundledVersions.props
-#remove netcore3.0 from tests as freebsd doesn't have it
           - task: Bash@3
             inputs:
              targetType: 'inline'
@@ -159,7 +159,6 @@ stages:
               set -e
               freebsd-dotnet-runtime-nightly/bsd_dotnet_install.sh $(System.ArtifactsDirectory)/${{ parameters.sdkDownload }} runtime
               runtime/.dotnet/dotnet nuget add source $(System.ArtifactsDirectory) --name local --configfile runtime/NuGet.config
-              sed -i.ORI -E 's/netcoreapp3\.0\;netcoreapp3\.1/net6/' runtime/src/installer/tests/Assets/TestProjects/StandaloneApp3x/StandaloneApp3x.csproj
             displayName: Install bootstrap SDK and NuGet
 #No tests: This just builds all legs currently supported by runtime under freebsd-x64
 #Failures here mean something is wrong and needs investigation
@@ -173,7 +172,7 @@ stages:
             continueOnError: false
             displayName: Build Runtime No Tests
 #Simple tests: This is done in two steps: build everything from 'none'+tests then run tests. 
-#These are more of "does it build" than "does it work correctly"
+#These are more of "does it build" than "does it work correctly" ("smoke tests")
 #Failures here are rare and usually mean the SDK(s) used need updates
           - task: Bash@3
             condition: eq('${{ parameters.runTests }}', 'simple')
