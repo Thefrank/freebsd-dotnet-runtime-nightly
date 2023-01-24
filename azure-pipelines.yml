@@ -145,7 +145,7 @@ stages:
              script: |
                set -e
                sed -i.ORI '/\/dnceng\/internal\//d' runtime/NuGet.config
-               sed -i.ORI 's/runtimeosx1012x64MicrosoftNETCoreRuntimeObjWriterVersion/runtimefreebsdx64MicrosoftNETCoreRuntimeObjWriterVersion/' runtime/eng/Versions.props
+               sed -i.ORI 's/runtimeosx1012x64MicrosoftNETCoreRuntimeObjWriterVersion/runtimefreebsdx64MicrosoftNETCoreRuntimeObjWriterVersion/g' runtime/eng/Versions.props
             displayName: Checkout and patch runtime
 #Add in freebsd RID needed
 #If using my SDKs that are "vSDK-BUILD" some stripping might be needed:
