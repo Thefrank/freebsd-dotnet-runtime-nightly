@@ -15,11 +15,11 @@ parameters:
 - name: bootstrapTag
   displayName: Tag to download bootstrap packages
   type: string
-  default: v7.0.100-rtm.22521.12-15
+  default: v8.0.100-alpha.1.23061.8
 - name: sdkDownload
   displayName: Bootstrap SDK to download
   type: string
-  default: dotnet-sdk-7.0.100-freebsd-x64.tar.gz
+  default: dotnet-sdk-8.0.100-alpha.1.23061.8-freebsd-x64.tar.gz
 - name: runTests
   displayName: Tests to Run
   type: string
@@ -138,18 +138,13 @@ stages:
             displayName: Download NuGets for tests
           - checkout: runtime
           - checkout: crossbuild
-#CPU_COUNT needs upstream and/or more investigation
-#https://github.com/dotnet/runtime/pull/77867
-#Additional patches are for: removing internal-use-only Microsoft feeds, adding freebsd into the testing systems, generating "Crossgen2" output
+#patches are for: removing internal-use-only Microsoft feeds
           - task: Bash@3
             inputs:
              targetType: 'inline'
              script: |
                set -e
                sed -i.ORI '/\/dnceng\/internal\//d' runtime/NuGet.config
-               sed -i.ORI -E '150,170s/CPU_COUNT\(\(void \*\) 0\)/CPU_COUNT\(\(cpuset_t \*\) 0\)/' runtime/src/mono/cmake/configure.cmake
-               patch -d runtime -p 1 < dotnet-freebsd-crossbuild/patches/patch_runtimetests.patch
-               patch -d runtime -p 1 < dotnet-freebsd-crossbuild/patches/patch_runtimecrossgen.patch
             displayName: Checkout and patch runtime
 #Add in freebsd RID needed
 #If using my SDKs that are "vSDK-BUILD" some stripping might be needed:
