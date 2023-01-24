@@ -194,7 +194,7 @@ stages:
              script: |
               set -e
               mkdir $(Build.ArtifactStagingDirectory)/TestResults/
-              runtime/build.sh /p:OfficialBuildId=$(date +%Y%m%d)-99 -ci -c Release -subset Clr+Mono+Host+Libs+Libs.Tests+Packs --test -bl:$(Build.SourcesDirectory)/runtime/artifacts/log/CombinedStep.binlog
+              runtime/build.sh /p:OfficialBuildId=$(date +%Y%m%d)-99 -ci -c Release -subset Clr+Mono+Host+Libs+Libs.Tests+Packs --test -bl:$(Build.SourcesDirectory)/runtime/artifacts/log/CombinedStep.binlog /p:PublishReadyToRun=false
             continueOnError: true
             displayName: Build Runtime Run Complete Tests
           - task: PublishPipelineArtifact@1
