@@ -39,7 +39,7 @@ parameters:
 - name: llvmTools
   displayName: BUILDID/TAG to download for llvmTools
   type: string
-  default: v1.0.0-alpha.1.23106.1
+  default: 1.0.0-alpha.1.23114.1
 - name: llvmToolsRepo
   displayName: Repo for llvmTools
   type: string
