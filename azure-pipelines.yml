@@ -31,7 +31,7 @@ parameters:
 - name: extraNugets
   displayName: BUILDID/TAG to download for IL(D)Asm
   type: string
-  default: v8.0.0-preview.2.23112.4
+  default: v8.0.0-preview.2.23126.3
 - name: extraNugetsRepo
   displayName: Repo for IL(D)Asm
   type: string
