@@ -7,7 +7,7 @@ parameters:
 - name: runtimeTag
   displayName: Tag for build (info only)
   type: string
-  default: 8.0.0-alpha
+  default: 8.0.0-preview
 - name: bootstrapRepo
   displayName: Repo to download bootstrap packages
   type: string
@@ -15,11 +15,11 @@ parameters:
 - name: bootstrapTag
   displayName: Tag to download bootstrap packages
   type: string
-  default: v8.0.100-alpha.1.23061.8
+  default: v8.0.100-preview.1.23115.2
 - name: sdkDownload
   displayName: Bootstrap SDK to download
   type: string
-  default: dotnet-sdk-8.0.100-alpha.1.23061.8-freebsd-x64.tar.gz
+  default: dotnet-sdk-8.0.100-preview.1.23115.2-freebsd-x64.tar.gz
 - name: runTests
   displayName: Tests to Run
   type: string
@@ -28,30 +28,6 @@ parameters:
     - none
     - simple
     - complete
-- name: extraNugets
-  displayName: BUILDID/TAG to download for IL(D)Asm
-  type: string
-  default: v8.0.0-preview.3.23155.6
-- name: extraNugetsRepo
-  displayName: Repo for IL(D)Asm
-  type: string
-  default: Thefrank/dotnet-freebsd-crossbuild
-- name: llvmTools
-  displayName: BUILDID/TAG to download for llvmTools
-  type: string
-  default: v1.0.0-alpha.1.23106.1
-- name: llvmToolsRepo
-  displayName: Repo for llvmTools
-  type: string
-  default: Thefrank/dotnet-freebsd-crossbuild
-- name: testNet6Nugets
-  displayName: Nuget from SDK version 6 needed for tests
-  type: string
-  default: v6.0.401-11
-- name: testNet6NugetsRepo
-  displayName: Repo for SDK version 6 needed for tests
-  type: string
-  default: Thefrank/dotnet-freebsd-crossbuild
 - name: publishArtifacts
   displayName: Publish Output to Pipeline
   type: boolean
@@ -124,36 +100,6 @@ stages:
               itemPattern: '**freebsd**'
               downloadPath: '$(System.ArtifactsDirectory)'
             displayName: Download bootstrap SDK and NuGet
-#Basic builds now require llvmTools (Objwriter/JITTools)
-          - task: DownloadGitHubRelease@0
-            inputs:
-              connection: 'Thefrank'
-              userRepository: '${{ parameters.llvmToolsRepo }}'
-              defaultVersionType: 'specificTag'
-              version: '${{ parameters.llvmTools }}'
-              itemPattern: '**freebsd**'
-              downloadPath: '$(System.ArtifactsDirectory)'
-            displayName: Download llvmTools
-          - task: DownloadGitHubRelease@0
-            condition: or(eq('${{ parameters.runTests }}', 'simple'), eq('${{ parameters.runTests }}', 'complete'))
-            inputs:
-              connection: 'Thefrank'
-              userRepository: '${{ parameters.extraNugetsRepo }}'
-              defaultVersionType: 'specificTag'
-              version: '${{ parameters.extraNugets }}'
-              itemPattern: 
-              downloadPath: '$(System.ArtifactsDirectory)'
-            displayName: Download bootstrap SDK and NuGet
-          - task: DownloadGitHubRelease@0
-            condition: or(eq('${{ parameters.runTests }}', 'simple'), eq('${{ parameters.runTests }}', 'complete'))
-            inputs:
-              connection: 'Thefrank'
-              userRepository: '${{ parameters.testNet6NugetsRepo }}'
-              defaultVersionType: 'specificTag'
-              version: '${{ parameters.testNet6Nugets }}'
-              itemPattern: '**nupkg**'
-              downloadPath: '$(System.ArtifactsDirectory)'
-            displayName: Download NuGets for tests
           - checkout: runtime
           - checkout: crossbuild
 #patches are for: removing internal-use-only Microsoft feeds, objwriter is not built by MS so we clobber a line for it
@@ -176,7 +122,7 @@ stages:
              script: |
               set -e
               freebsd-dotnet-runtime-nightly/bsd_dotnet_install.sh $(System.ArtifactsDirectory)/${{ parameters.sdkDownload }} runtime
-              runtime/.dotnet/dotnet nuget add source $(System.ArtifactsDirectory) --name local --configfile runtime/NuGet.config
+              runtime/.dotnet/dotnet nuget add source https://pkgs.dev.azure.com/IFailAt/freebsd-dotnet-runtime-nightly/_packaging/freebsd-dotnet/nuget/v3/index.json --name "freebsd-dotnet" --configfile runtime/NuGet.config
             displayName: Install bootstrap SDK and NuGet
 #No tests: This just builds all legs currently supported by runtime under freebsd-x64
 #Failures here mean something is wrong and needs investigation
