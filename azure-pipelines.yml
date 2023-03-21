@@ -35,12 +35,12 @@ parameters:
 
 trigger: none
 
-#schedules:
-#- cron: "0 0 * * *"
-#  displayName: Daily midnight build
-#  branches:
-#    include:
-#    - main
+schedules:
+- cron: "0 0 * * *"
+  displayName: Daily midnight build
+  branches:
+    include:
+    - main
 
 pool:
   name: Default
