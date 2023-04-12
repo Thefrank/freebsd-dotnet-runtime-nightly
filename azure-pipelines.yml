@@ -123,7 +123,7 @@ stages:
               set -e
               freebsd-dotnet-runtime-nightly/bsd_dotnet_install.sh $(System.ArtifactsDirectory)/${{ parameters.sdkDownload }} runtime
               runtime/.dotnet/dotnet nuget add source https://pkgs.dev.azure.com/IFailAt/freebsd-dotnet-runtime-nightly/_packaging/freebsd-dotnet/nuget/v3/index.json --name "freebsd-dotnet" --configfile runtime/NuGet.config || true
-              runtime/.dotnet/dotnet nuget add source "https://nuget.pkg.github.com/TheFrank/index.json" --name "FreeBSD-GHP" --username $GHPN_ABSTRACT --password $GHPP_ABSTRACT --store-password-in-clear-text || true
+              runtime/.dotnet/dotnet nuget add source https://nuget.pkg.github.com/TheFrank/index.json --name "FreeBSD-GHP" --username $GHPN_ABSTRACT --password $GHPP_ABSTRACT --store-password-in-clear-text --configfile runtime/NuGet.config || true
             displayName: Install bootstrap SDK and NuGet
             env: 
               GHPP_ABSTRACT: $(GHPP)
