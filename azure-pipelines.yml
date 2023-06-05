@@ -15,11 +15,11 @@ parameters:
 - name: bootstrapTag
   displayName: Tag to download bootstrap packages
   type: string
-  default: v8.0.100-preview.3.23178.7
+  default: v8.0.100-preview.4.23260.5
 - name: sdkDownload
   displayName: Bootstrap SDK to download
   type: string
-  default: dotnet-sdk-8.0.100-preview.3.23178.7-freebsd-x64.tar.gz
+  default: dotnet-sdk-8.0.100-preview.4.23260.5-freebsd-x64.tar.gz
 - name: runTests
   displayName: Tests to Run
   type: string
