@@ -19,7 +19,7 @@ parameters:
 - name: sdkDownload
   displayName: Bootstrap SDK to download
   type: string
-  default: dotnet-sdk-8.0.100-preview.4.23260.5-freebsd-x64.tar.gz
+  default: dotnet-sdk-8.0.100-preview.5.23303.2-freebsd-x64.tar.gz
 - name: runTests
   displayName: Tests to Run
   type: string
