@@ -15,7 +15,7 @@ parameters:
 - name: bootstrapTag
   displayName: Tag to download bootstrap packages
   type: string
-  default: v8.0.100-preview.4.23260.5
+  default: v8.0.100-preview.5.23303.2
 - name: sdkDownload
   displayName: Bootstrap SDK to download
   type: string
