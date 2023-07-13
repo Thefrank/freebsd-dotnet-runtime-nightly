@@ -106,14 +106,14 @@ stages:
             displayName: Download bootstrap SDK and NuGet
           - checkout: runtime
           - checkout: crossbuild
-#patches are for: removing internal-use-only Microsoft feeds, objwriter is not built by MS so we clobber a line for it
+#patches are for: removing internal-use-only Microsoft feeds, objwriter is not built by MS so add it in the most painful way possible
           - task: Bash@3
             inputs:
              targetType: 'inline'
              script: |
                set -e
                sed -i.ORI '/\/dnceng\/internal\//d' runtime/NuGet.config
-               sed -i.ORI 's/runtimeosx1012x64MicrosoftNETCoreRuntimeObjWriterVersion/runtimefreebsdx64MicrosoftNETCoreRuntimeObjWriterVersion/g' runtime/eng/Versions.props
+               sed -i.ORI '/runtimeosxx64MicrosoftNETCoreRuntimeObjWriterVersion\>/a\'$'\n''\ \ \ \ <runtimefreebsdx64MicrosoftNETCoreRuntimeObjWriterVersion>16.0.5-alpha.1.23354.1</runtimefreebsdx64MicrosoftNETCoreRuntimeObjWriterVersion>'$'\n' eng/Versions.props
             displayName: Checkout and patch runtime
 #Add in freebsd RID needed
 #If using my SDKs that are "vSDK-BUILD" some stripping might be needed:
