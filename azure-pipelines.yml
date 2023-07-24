@@ -7,7 +7,7 @@ parameters:
 - name: runtimeTag
   displayName: Tag for build (info only)
   type: string
-  default: 8.0.0-preview
+  default: 8.0.0-RC
 - name: bootstrapRepo
   displayName: Repo to download bootstrap packages
   type: string
@@ -15,11 +15,11 @@ parameters:
 - name: bootstrapTag
   displayName: Tag to download bootstrap packages
   type: string
-  default: v8.0.100-preview.5.23303.2
+  default: 8.0.100-preview.6.23330.14
 - name: sdkDownload
   displayName: Bootstrap SDK to download
   type: string
-  default: dotnet-sdk-8.0.100-preview.5.23303.2-freebsd-x64.tar.gz
+  default: dotnet-sdk-8.0.100-preview.6.23330.14-freebsd-x64.tar.gz
 - name: runTests
   displayName: Tests to Run
   type: string
