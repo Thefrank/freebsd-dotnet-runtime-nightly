@@ -7,7 +7,7 @@ parameters:
 - name: runtimeTag
   displayName: Tag for build (info only)
   type: string
-  default: 8.0.0-RC
+  default: 9.0.0-alpha
 - name: bootstrapRepo
   displayName: Repo to download bootstrap packages
   type: string
