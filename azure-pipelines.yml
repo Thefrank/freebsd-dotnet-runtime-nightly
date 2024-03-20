@@ -1,11 +1,11 @@
-#This YML assumes that you have an enviroment and depencies already installed to facilitate running and building dotNET under FreeBSD AMD64
+#This YML assumes that you have an enviroment and depencies already installed to facilitate running and building dotNET under FreeBSD
 #Unlike a crossbuild that can use Microsoft's Docker containers, native builds can not.
 #Testing is only supported natively and we don't have access to the "Helix" system that Microsoft uses for its officially supported platforms
 #https://github.com/dotnet/runtime/blob/main/docs/workflow/requirements/freebsd-requirements.md
 #and yes templating with more variables would look nicer but I am lazier
 parameters:
 - name: targetOS
-  displayName: ARCH-OSNAME of container to use
+  displayName: ARCH-OSNAME of arch+os to use
   type: string
   default: amd64-freebsd
   values:
@@ -87,8 +87,11 @@ resources:
 variables:
 - name: runCounter 
   value: $[counter('runNumber', 1)]
-- name: sdkToDownload 
+- name: sdkTag
   value:  ${{ parameters.bootstrapTag }}-${{ parameters.targetOS }}-${{ parameters.targetOSVersion }}
+- name: sdkName 
+  value:  dotnet-sdk-${{ replace(parameters.bootstrapTag,'v9','9') }}-freebsd-${{ replace(split(parameters.targetOS, '-')[0],'amd64','x64') }}.tar.gz
+
 stages:
   - stage: Setup
     dependsOn: []
@@ -118,7 +121,7 @@ stages:
               connection: 'Thefrank'
               userRepository: '${{ parameters.bootstrapRepo }}'
               defaultVersionType: 'specificTag'
-              version: '$(sdkToDownload)'
+              version: '$(sdkTag)'
               itemPattern: '**freebsd**'
               downloadPath: '$(System.ArtifactsDirectory)'
             displayName: Download bootstrap SDK and NuGet
@@ -132,17 +135,13 @@ stages:
                set -e
                sed -i.ORI '/\/dnceng\/internal\//d' runtime/NuGet.config
             displayName: Checkout and patch runtime
-#Add in freebsd RID needed
-#If using my SDKs that are "vSDK-BUILD" some stripping might be needed:
-#SDKVer=$(sed 's/^.//;s/...$//'<<< ${{ parameters.bootstrapTag }})
-#If using an SDK that does not already have freebsd-x64 support use the following:
-#sed -i.ORI -E 's/linux-x64/linux-x64;freebsd-x64/' runtime/.dotnet/sdk/$SDKVer/Microsoft.NETCoreSdk.BundledVersions.props
+
           - task: Bash@3
             inputs:
              targetType: 'inline'
              script: |
               set -e
-              freebsd-dotnet-runtime-nightly/bsd_dotnet_install.sh $(System.ArtifactsDirectory)/$(sdkToDownload).tar.gz runtime
+              freebsd-dotnet-runtime-nightly/bsd_dotnet_install.sh $(System.ArtifactsDirectory)/$(sdkName) runtime
               runtime/.dotnet/dotnet nuget add source https://pkgs.dev.azure.com/IFailAt/freebsd-dotnet-runtime-nightly/_packaging/freebsd-dotnet/nuget/v3/index.json --name "freebsd-dotnet" --configfile runtime/NuGet.config || true
             displayName: Install bootstrap SDK and NuGet
 #No tests: This just builds all legs currently supported by runtime under freebsd-x64
@@ -153,7 +152,7 @@ stages:
              targetType: 'inline'
              script: |
               set -e
-              runtime/build.sh /p:OfficialBuildId=$(date +%Y%m%d)-99 -ci -c Release -subset Clr+Mono+Host+Libs+Packs -bl:$(Build.SourcesDirectory)/runtime/artifacts/log/BuildStep.binlog ${{ parameters.extraParameters }}
+              runtime/build.sh /p:OfficialBuildId=$(date +%Y%m%d)-99 -ci -c ${{ parameters.buildType }} -subset Clr+Mono+Host+Libs+Packs -bl:$(Build.SourcesDirectory)/runtime/artifacts/log/BuildStep.binlog ${{ parameters.extraParameters }}
             continueOnError: false
             displayName: Build Runtime No Tests
 #Simple tests: This is done in two steps: build everything from 'none'+tests then run tests. 
@@ -166,8 +165,8 @@ stages:
              script: |
               set -e
               mkdir $(Build.ArtifactStagingDirectory)/TestResults/
-              runtime/build.sh /p:OfficialBuildId=$(date +%Y%m%d)-99 -ci -c Release -subset Clr+Mono+Host+Libs+Libs.Tests+Packs -bl:$(Build.SourcesDirectory)/runtime/artifacts/log/BuildStep.binlog ${{ parameters.extraParameters }}
-              runtime/build.sh /p:OfficialBuildId=$(date +%Y%m%d)-99 -ci -c Release --test --testnobuild -bl:$(Build.SourcesDirectory)/runtime/artifacts/log/TestStep.binlog
+              runtime/build.sh /p:OfficialBuildId=$(date +%Y%m%d)-99 -ci -c ${{ parameters.buildType }} -subset Clr+Mono+Host+Libs+Libs.Tests+Packs -bl:$(Build.SourcesDirectory)/runtime/artifacts/log/BuildStep.binlog ${{ parameters.extraParameters }}
+              runtime/build.sh /p:OfficialBuildId=$(date +%Y%m%d)-99 -ci -c ${{ parameters.buildType }} --test --testnobuild -bl:$(Build.SourcesDirectory)/runtime/artifacts/log/TestStep.binlog
             continueOnError: true
             displayName: Build Runtime Run Simple Tests
 #Complete tests: Builds everything support and all supported tests. Runs all supported tests
@@ -179,13 +178,13 @@ stages:
              script: |
               set -e
               mkdir $(Build.ArtifactStagingDirectory)/TestResults/
-              runtime/build.sh /p:OfficialBuildId=$(date +%Y%m%d)-99 -ci -c Release -subset Clr+Mono+Host+Libs+Libs.Tests+Packs --test -bl:$(Build.SourcesDirectory)/runtime/artifacts/log/CombinedStep.binlog ${{ parameters.extraParameters }}
+              runtime/build.sh /p:OfficialBuildId=$(date +%Y%m%d)-99 -ci -c ${{ parameters.buildType }} -subset Clr+Mono+Host+Libs+Libs.Tests+Packs --test -bl:$(Build.SourcesDirectory)/runtime/artifacts/log/CombinedStep.binlog ${{ parameters.extraParameters }}
             continueOnError: true
             displayName: Build Runtime Run Complete Tests
           - task: PublishPipelineArtifact@1
             condition: eq('${{ parameters.publishArtifacts }}', 'true')
             inputs:
-              targetPath: '$(Build.SourcesDirectory)/runtime/artifacts/packages/Release/Shipping'
+              targetPath: '$(Build.SourcesDirectory)/runtime/artifacts/packages/${{ parameters.buildType }}/Shipping'
               artifact: 'RuntimePackages-$(runCounter)'
               publishLocation: 'pipeline'
             displayName: Publish Runtime Artifacts
@@ -203,7 +202,7 @@ stages:
               testResultsFiles: '**/testResults.xml'
               searchFolder: '$(Build.SourcesDirectory)/runtime/artifacts/bin'
               testRunTitle: 'Runtime Test Results'
-              buildPlatform: 'FreeBSD 13.1 (TrueNAS 13.1-U3)'
+              buildPlatform: 'FreeBSD 13.1 (TrueNAS 13.1-U6)'
               buildConfiguration: 'AMD64'
             displayName: Publish XUnit Tests
           - task: PublishTestResults@2
@@ -213,6 +212,6 @@ stages:
               testResultsFiles: '**/*Tests*.trx'
               searchFolder: '$(Build.SourcesDirectory)/runtime/artifacts/TestResults/Release/'
               testRunTitle: 'Runtime Test Results'
-              buildPlatform: 'FreeBSD 13.1 (TrueNAS 13.1-U3)'
+              buildPlatform: 'FreeBSD 13.1 (TrueNAS 13.1-U6)'
               buildConfiguration: 'AMD64'
             displayName: Publish VSTest Tests
