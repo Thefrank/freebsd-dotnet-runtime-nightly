@@ -4,10 +4,31 @@
 #https://github.com/dotnet/runtime/blob/main/docs/workflow/requirements/freebsd-requirements.md
 #and yes templating with more variables would look nicer but I am lazier
 parameters:
-- name: runtimeTag
-  displayName: Tag for build (info only)
+- name: targetOS
+  displayName: ARCH-OSNAME of container to use
   type: string
-  default: 9.0.0-alpha
+  default: amd64-freebsd
+  values:
+    - amd64-freebsd
+    - arm64-freebsd
+- name: targetOSVersion
+  displayName: OS Version
+  type: string
+  default: 13
+  values:
+    - 13
+    - 14
+- name: buildType
+  displayName: Type of build (Release/Debug)
+  type: string
+  default: Release
+  values:
+    - Release
+    - Debug
+- name: runtimeName
+  displayName: Name for build (info only)
+  type: string
+  default: 9.0.0-main
 - name: bootstrapRepo
   displayName: Repo to download bootstrap packages
   type: string
@@ -15,11 +36,7 @@ parameters:
 - name: bootstrapTag
   displayName: Tag to download bootstrap packages
   type: string
-  default: v8.0.100-rc.1.23455.8
-- name: sdkDownload
-  displayName: Bootstrap SDK to download
-  type: string
-  default: dotnet-sdk-8.0.100-rc.1.23455.8-freebsd-x64.tar.gz
+  default: v9.0.100-preview.1.24101.2
 - name: runTests
   displayName: Tests to Run
   type: string
@@ -68,22 +85,23 @@ resources:
   
 
 variables:
-  runCounter: $[counter('runNumber', 1)]
-
+- name: runCounter 
+  value: $[counter('runNumber', 1)]
+- name: sdkToDownload 
+  value:  ${{ parameters.bootstrapTag }}-${{ parameters.targetOS }}-${{ parameters.targetOSVersion }}
 stages:
   - stage: Setup
     dependsOn: []
     jobs:
       - job: init
-        timeoutInMinutes: 120
+        timeoutInMinutes: 30
+        workspace:
+          clean: all
         steps:
-        - task: Bash@3
-          inputs:
-            targetType: 'inline'
-            script: |
-              set -e
-              TAG=${{ parameters.runtimeTag }}
-              echo "##vso[build.updatebuildnumber]${TAG/\//-}--${RUNCOUNTER}"
+        - bash: |
+            TAG=${{ parameters.runtimeName }}
+            echo "##vso[build.updatebuildnumber]${TAG/\//-}-${{ parameters.targetOS }}-${{ parameters.targetOSVersion }}-run-${RUNCOUNTER}"
+            echo "Building ${{ parameters.runtimeName }}-${{ parameters.targetOS }}-${{ parameters.targetOSVersion }}"
           displayName: Set Build Name
 #Timeout at 240min because tests can hang
   - stage: Runtime
@@ -100,20 +118,19 @@ stages:
               connection: 'Thefrank'
               userRepository: '${{ parameters.bootstrapRepo }}'
               defaultVersionType: 'specificTag'
-              version: '${{ parameters.bootstrapTag }}'
+              version: '$(sdkToDownload)'
               itemPattern: '**freebsd**'
               downloadPath: '$(System.ArtifactsDirectory)'
             displayName: Download bootstrap SDK and NuGet
           - checkout: runtime
           - checkout: crossbuild
-#patches are for: removing internal-use-only Microsoft feeds, objwriter is not built by MS so add it in the most painful way possible
+#patches are for: removing internal-use-only Microsoft feeds.
           - task: Bash@3
             inputs:
              targetType: 'inline'
              script: |
                set -e
                sed -i.ORI '/\/dnceng\/internal\//d' runtime/NuGet.config
-               sed -i.ORI '/runtimeosxx64MicrosoftNETCoreRuntimeObjWriterVersion\>/a\'$'\n''\ \ \ \ <runtimefreebsdx64MicrosoftNETCoreRuntimeObjWriterVersion>16.0.5-alpha.1.23354.1</runtimefreebsdx64MicrosoftNETCoreRuntimeObjWriterVersion>'$'\n' runtime/eng/Versions.props
             displayName: Checkout and patch runtime
 #Add in freebsd RID needed
 #If using my SDKs that are "vSDK-BUILD" some stripping might be needed:
@@ -125,13 +142,9 @@ stages:
              targetType: 'inline'
              script: |
               set -e
-              freebsd-dotnet-runtime-nightly/bsd_dotnet_install.sh $(System.ArtifactsDirectory)/${{ parameters.sdkDownload }} runtime
+              freebsd-dotnet-runtime-nightly/bsd_dotnet_install.sh $(System.ArtifactsDirectory)/$(sdkToDownload).tar.gz runtime
               runtime/.dotnet/dotnet nuget add source https://pkgs.dev.azure.com/IFailAt/freebsd-dotnet-runtime-nightly/_packaging/freebsd-dotnet/nuget/v3/index.json --name "freebsd-dotnet" --configfile runtime/NuGet.config || true
-              runtime/.dotnet/dotnet nuget add source https://nuget.pkg.github.com/TheFrank/index.json --name "FreeBSD-GHP" --username $GHPN_ABSTRACT --password $GHPP_ABSTRACT --store-password-in-clear-text --configfile runtime/NuGet.config || true
             displayName: Install bootstrap SDK and NuGet
-            env: 
-              GHPP_ABSTRACT: $(GHPP)
-              GHPN_ABSTRACT: $(GHPN)
 #No tests: This just builds all legs currently supported by runtime under freebsd-x64
 #Failures here mean something is wrong and needs investigation
           - task: Bash@3
