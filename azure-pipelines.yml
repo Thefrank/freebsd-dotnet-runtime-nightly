@@ -67,6 +67,7 @@ pool:
   name: Default
   demands:
   - agent.os -equals FreeBSD
+  - agent.name -equals freebsd133
 
 #runtime is where we download the source to build
 #crossbuild is where this downloads all patches it uses
@@ -115,6 +116,18 @@ stages:
         workspace:
           clean: outputs
         steps:
+          - task: Bash@3
+            inputs:
+             targetType: 'inline'
+             script: |
+               set -e
+               echo "Checking for ASLR."
+               if [ `sysctl -n kern.elf64.aslr.enable` -ne 0 ]; then
+                echo "ASLR is enabled. Please disable."
+                exit 1
+               fi
+               echo "ASLR is disabled."
+            displayName: Check for ASLR
           - checkout: self
           - task: DownloadGitHubRelease@0
             inputs:
@@ -127,7 +140,7 @@ stages:
             displayName: Download bootstrap SDK and NuGet
           - checkout: runtime
           - checkout: crossbuild
-#patches are for: removing internal-use-only Microsoft feeds.
+#patches are for: removing internal-use-only Microsoft feeds. Nothing else currently
           - task: Bash@3
             inputs:
              targetType: 'inline'
@@ -135,7 +148,6 @@ stages:
                set -e
                sed -i.ORI '/\/dnceng\/internal\//d' runtime/NuGet.config
             displayName: Checkout and patch runtime
-
           - task: Bash@3
             inputs:
              targetType: 'inline'
