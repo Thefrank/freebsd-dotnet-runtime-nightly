@@ -155,6 +155,10 @@ stages:
               set -e
               freebsd-dotnet-runtime-nightly/bsd_dotnet_install.sh $(System.ArtifactsDirectory)/$(sdkName) runtime
               runtime/.dotnet/dotnet nuget add source https://pkgs.dev.azure.com/IFailAt/freebsd-dotnet-runtime-nightly/_packaging/freebsd-dotnet/nuget/v3/index.json --name "freebsd-dotnet" --configfile runtime/NuGet.config || true
+              runtime/.dotnet/dotnet nuget add source --username $GHPN_ABSTRACT  --password $GHPP_ABSTRACT --store-password-in-clear-text --name GHP "https://nuget.pkg.github.com/TheFrank/index.json" || true
+            env: 
+              GHPP_ABSTRACT: $(GHPP)
+              GHPN_ABSTRACT: $(GHPN)
             displayName: Install bootstrap SDK and NuGet
 #No tests: This just builds all legs currently supported by runtime under freebsd-x64
 #Failures here mean something is wrong and needs investigation
