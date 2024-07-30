@@ -180,7 +180,7 @@ stages:
              targetType: 'inline'
              script: |
               set -e
-              runtime/build.sh /p:OfficialBuildId=$(date +%Y%m%d)-99 -ci -c ${{ parameters.buildType }} -subset Clr+Mono+Host+Tools+Libs+Packs -bl:$(Build.SourcesDirectory)/runtime/artifacts/log/BuildStep.binlog ${{ parameters.extraParameters }}
+              runtime/build.sh /p:OfficialBuildId=$(date +%Y%m%d)-99 -ci -c ${{ parameters.buildType }} -subset Clr+Mono+Host+Libs+Packs -bl:$(Build.SourcesDirectory)/runtime/artifacts/log/BuildStep.binlog ${{ parameters.extraParameters }}
             continueOnError: false
             displayName: Build Runtime No Tests
 #Simple tests: This is done in two steps: build everything from 'none'+tests then run tests. 
@@ -193,7 +193,7 @@ stages:
              script: |
               set -e
               mkdir $(Build.ArtifactStagingDirectory)/TestResults/
-              runtime/build.sh /p:OfficialBuildId=$(date +%Y%m%d)-99 -ci -c ${{ parameters.buildType }} -subset Clr+Mono+Host+Tools+Libs+Libs.Tests+Packs -bl:$(Build.SourcesDirectory)/runtime/artifacts/log/BuildStep.binlog ${{ parameters.extraParameters }}
+              runtime/build.sh /p:OfficialBuildId=$(date +%Y%m%d)-99 -ci -c ${{ parameters.buildType }} -subset Clr+Mono+Host+Libs+Libs.Tests+Packs -bl:$(Build.SourcesDirectory)/runtime/artifacts/log/BuildStep.binlog ${{ parameters.extraParameters }}
               runtime/build.sh /p:OfficialBuildId=$(date +%Y%m%d)-99 -ci -c ${{ parameters.buildType }} --test --testnobuild -bl:$(Build.SourcesDirectory)/runtime/artifacts/log/TestStep.binlog
             continueOnError: true
             displayName: Build Runtime Run Simple Tests
@@ -206,7 +206,7 @@ stages:
              script: |
               set -e
               mkdir $(Build.ArtifactStagingDirectory)/TestResults/
-              runtime/build.sh /p:OfficialBuildId=$(date +%Y%m%d)-99 -ci -c ${{ parameters.buildType }} -subset Clr+Mono+Host+Tools+Libs+Libs.Tests+Packs --test -bl:$(Build.SourcesDirectory)/runtime/artifacts/log/CombinedStep.binlog ${{ parameters.extraParameters }}
+              runtime/build.sh /p:OfficialBuildId=$(date +%Y%m%d)-99 -ci -c ${{ parameters.buildType }} -subset Clr+Mono+Host+Libs+Libs.Tests+Packs --test -bl:$(Build.SourcesDirectory)/runtime/artifacts/log/CombinedStep.binlog ${{ parameters.extraParameters }}
             continueOnError: true
             displayName: Build Runtime Run Complete Tests
           - task: PublishPipelineArtifact@1
