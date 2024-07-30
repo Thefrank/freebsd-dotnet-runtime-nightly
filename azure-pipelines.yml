@@ -161,7 +161,7 @@ stages:
              targetType: 'inline'
              script: |
                set -e
-               git reset --hard 5e720dd196441dafd48cd3cbb776306f8523a58f
+               git -C '$(System.StageDisplayName)' reset --hard 5e720dd196441dafd48cd3cbb776306f8523a58f
                sed -i.ORI '/\/dnceng\/internal\//d' runtime/NuGet.config
                fetch https://patch-diff.githubusercontent.com/raw/dotnet/runtime/pull/105004.diff
                patch -d runtime -p 1 < 105004.diff
