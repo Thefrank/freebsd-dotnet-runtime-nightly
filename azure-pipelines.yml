@@ -33,10 +33,6 @@ parameters:
   displayName: Repo to download bootstrap packages
   type: string
   default: Thefrank/dotnet-freebsd-crossbuild
-- name: bootstrapTag
-  displayName: Tag to download bootstrap packages
-  type: string
-  default: v9.0.100-preview.1.24101.2
 - name: runTests
   displayName: Tests to Run
   type: string
@@ -49,6 +45,10 @@ parameters:
   displayName: Publish Output to Pipeline
   type: boolean
   default: false
+- name: cleanRepo
+  displayName: Clean repo on success
+  type: boolean
+  default: true
 - name: extraParameters
   displayName: Extra parameters to pass to build (e.g.,/p:PublishReadyToRun=false)
   type: string
@@ -67,7 +67,7 @@ pool:
   name: Default
   demands:
   - agent.os -equals FreeBSD
-  - agent.name -equals freebsd133
+  - agent.name -equals 133build
 
 #runtime is where we download the source to build
 #crossbuild is where this downloads all patches it uses
@@ -89,9 +89,11 @@ variables:
 - name: runCounter 
   value: $[counter('runNumber', 1)]
 - name: sdkTag
-  value:  ${{ parameters.bootstrapTag }}-${{ parameters.targetOS }}-${{ parameters.targetOSVersion }}
-- name: sdkName 
-  value:  dotnet-sdk-${{ replace(parameters.bootstrapTag,'v9','9') }}-freebsd-${{ replace(split(parameters.targetOS, '-')[0],'amd64','x64') }}.tar.gz
+  value: 
+- name: sdkName
+  value:
+- name: OSARCH 
+  value: ${{ replace(split(parameters.targetOS, '-')[0],'amd64','x64') }}
 
 stages:
   - stage: Setup
@@ -108,10 +110,10 @@ stages:
             echo "Building ${{ parameters.runtimeName }}-${{ parameters.targetOS }}-${{ parameters.targetOSVersion }}"
           displayName: Set Build Name
 #Timeout at 240min because tests can hang
-  - stage: Runtime
+  - stage: runtime
     dependsOn: [Setup]
     jobs:
-      - job: Runtime
+      - job: runtime
         timeoutInMinutes: 240
         workspace:
           clean: outputs
@@ -123,12 +125,23 @@ stages:
                set -e
                echo "Checking for ASLR."
                if [ `sysctl -n kern.elf64.aslr.enable` -ne 0 ]; then
-                echo "ASLR is enabled. Please disable."
-                exit 1
+                echo "ASLR is enabled. This may cause problems."
                fi
-               echo "ASLR is disabled."
             displayName: Check for ASLR
-          - checkout: self
+          - task: Bash@3
+            inputs:
+             targetType: 'inline'
+             script: |
+               set -e
+               echo "##vso[task.setvariable variable=sdkName]$(curl -s https://raw.githubusercontent.com/dotnet/runtime/main/global.json | jq -r '.[] | select(.rollForward=="major") | .version')"
+            displayName: Determine SDK
+          - task: Bash@3
+            inputs:
+             targetType: 'inline'
+             script: |
+               set -e
+               echo "##vso[task.setvariable variable=sdkTag]v$(sdkName)-${{ parameters.targetOS }}-${{ parameters.targetOSVersion }}"
+            displayName: Update sdkTag
           - task: DownloadGitHubRelease@0
             inputs:
               connection: 'Thefrank'
@@ -136,30 +149,29 @@ stages:
               defaultVersionType: 'specificTag'
               version: '$(sdkTag)'
               itemPattern: '**freebsd**'
-              downloadPath: '$(System.ArtifactsDirectory)'
+              downloadPath: '$(Build.ArtifactStagingDirectory)'
             displayName: Download bootstrap SDK and NuGet
+          - checkout: self
           - checkout: runtime
           - checkout: crossbuild
-#patches are for: removing internal-use-only Microsoft feeds. Nothing else currently
+#patches are for: removing internal-use-only Microsoft feeds. Build using livehost.
           - task: Bash@3
             inputs:
              targetType: 'inline'
              script: |
                set -e
                sed -i.ORI '/\/dnceng\/internal\//d' runtime/NuGet.config
-            displayName: Checkout and patch runtime
+               fetch https://patch-diff.githubusercontent.com/raw/dotnet/runtime/pull/105004.diff
+               patch -d runtime -p 1 < 105004.diff
+            displayName: Patch runtime
           - task: Bash@3
             inputs:
              targetType: 'inline'
              script: |
               set -e
-              freebsd-dotnet-runtime-nightly/bsd_dotnet_install.sh $(System.ArtifactsDirectory)/$(sdkName) runtime
-              runtime/.dotnet/dotnet nuget add source https://pkgs.dev.azure.com/IFailAt/freebsd-dotnet-runtime-nightly/_packaging/freebsd-dotnet/nuget/v3/index.json --name "freebsd-dotnet" --configfile runtime/NuGet.config
-              runtime/.dotnet/dotnet nuget add source --username $GHPN_ABSTRACT --password $GHPP_ABSTRACT --store-password-in-clear-text --name GHP "https://nuget.pkg.github.com/TheFrank/index.json" --configfile runtime/NuGet.config
+              freebsd-dotnet-runtime-nightly/bsd_dotnet_install.sh $(Build.ArtifactStagingDirectory)/dotnet-sdk-$(SDKNAME)-freebsd-$(OSARCH).tar.gz runtime
+              runtime/.dotnet/dotnet nuget add source $(Build.ArtifactStagingDirectory) --name "local" --configfile runtime/NuGet.config
             displayName: Install bootstrap SDK and NuGet
-            env: 
-              GHPP_ABSTRACT: $(GHPP)
-              GHPN_ABSTRACT: $(GHPN)
 #No tests: This just builds all legs currently supported by runtime under freebsd-x64
 #Failures here mean something is wrong and needs investigation
           - task: Bash@3
@@ -168,7 +180,7 @@ stages:
              targetType: 'inline'
              script: |
               set -e
-              runtime/build.sh /p:OfficialBuildId=$(date +%Y%m%d)-99 -ci -c ${{ parameters.buildType }} -subset Clr+Mono+Host+Libs+Packs -bl:$(Build.SourcesDirectory)/runtime/artifacts/log/BuildStep.binlog ${{ parameters.extraParameters }}
+              runtime/build.sh /p:OfficialBuildId=$(date +%Y%m%d)-99 -ci -c ${{ parameters.buildType }} -subset Clr+Mono+Host+Tools+Libs+Packs -bl:$(Build.SourcesDirectory)/runtime/artifacts/log/BuildStep.binlog ${{ parameters.extraParameters }}
             continueOnError: false
             displayName: Build Runtime No Tests
 #Simple tests: This is done in two steps: build everything from 'none'+tests then run tests. 
@@ -181,7 +193,7 @@ stages:
              script: |
               set -e
               mkdir $(Build.ArtifactStagingDirectory)/TestResults/
-              runtime/build.sh /p:OfficialBuildId=$(date +%Y%m%d)-99 -ci -c ${{ parameters.buildType }} -subset Clr+Mono+Host+Libs+Libs.Tests+Packs -bl:$(Build.SourcesDirectory)/runtime/artifacts/log/BuildStep.binlog ${{ parameters.extraParameters }}
+              runtime/build.sh /p:OfficialBuildId=$(date +%Y%m%d)-99 -ci -c ${{ parameters.buildType }} -subset Clr+Mono+Host+Tools+Libs+Libs.Tests+Packs -bl:$(Build.SourcesDirectory)/runtime/artifacts/log/BuildStep.binlog ${{ parameters.extraParameters }}
               runtime/build.sh /p:OfficialBuildId=$(date +%Y%m%d)-99 -ci -c ${{ parameters.buildType }} --test --testnobuild -bl:$(Build.SourcesDirectory)/runtime/artifacts/log/TestStep.binlog
             continueOnError: true
             displayName: Build Runtime Run Simple Tests
@@ -194,7 +206,7 @@ stages:
              script: |
               set -e
               mkdir $(Build.ArtifactStagingDirectory)/TestResults/
-              runtime/build.sh /p:OfficialBuildId=$(date +%Y%m%d)-99 -ci -c ${{ parameters.buildType }} -subset Clr+Mono+Host+Libs+Libs.Tests+Packs --test -bl:$(Build.SourcesDirectory)/runtime/artifacts/log/CombinedStep.binlog ${{ parameters.extraParameters }}
+              runtime/build.sh /p:OfficialBuildId=$(date +%Y%m%d)-99 -ci -c ${{ parameters.buildType }} -subset Clr+Mono+Host+Tools+Libs+Libs.Tests+Packs --test -bl:$(Build.SourcesDirectory)/runtime/artifacts/log/CombinedStep.binlog ${{ parameters.extraParameters }}
             continueOnError: true
             displayName: Build Runtime Run Complete Tests
           - task: PublishPipelineArtifact@1
@@ -218,7 +230,7 @@ stages:
               testResultsFiles: '**/testResults.xml'
               searchFolder: '$(Build.SourcesDirectory)/runtime/artifacts/bin'
               testRunTitle: 'Runtime Test Results'
-              buildPlatform: 'FreeBSD 13.1 (TrueNAS 13.1-U6)'
+              buildPlatform: 'FreeBSD 13.3'
               buildConfiguration: 'AMD64'
             displayName: Publish XUnit Tests
           - task: PublishTestResults@2
@@ -228,6 +240,13 @@ stages:
               testResultsFiles: '**/*Tests*.trx'
               searchFolder: '$(Build.SourcesDirectory)/runtime/artifacts/TestResults/Release/'
               testRunTitle: 'Runtime Test Results'
-              buildPlatform: 'FreeBSD 13.1 (TrueNAS 13.1-U6)'
+              buildPlatform: 'FreeBSD 13.3'
               buildConfiguration: 'AMD64'
             displayName: Publish VSTest Tests
+          - task: Bash@3
+            condition: and (eq('${{ parameters.cleanRepo }}', 'true'), in(variables['Agent.JobStatus'], 'Succeeded', 'SucceededWithIssues'))
+            inputs:
+              targetType: 'inline'
+              script: |
+                git -C '$(System.StageDisplayName)' clean -ffdx
+            displayName: Clean Up $(System.StageDisplayName)
