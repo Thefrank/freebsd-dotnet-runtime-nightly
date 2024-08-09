@@ -110,11 +110,22 @@ stages:
             echo "Building ${{ parameters.runtimeName }}-${{ parameters.targetOS }}-${{ parameters.targetOSVersion }}"
           displayName: Set Build Name
 #Timeout at 240min because tests can hang
+#Maxtrix for in-service FreeBSD versions. maxParallel:1 because $
   - stage: runtime
     dependsOn: [Setup]
     jobs:
       - job: runtime
         timeoutInMinutes: 240
+        strategy:
+          matrix:
+            freebsd13:
+             agentName: '133build'
+            freebsd14:
+             agentName: '141build'
+          maxParallel: 1
+        pool: 
+          name: Default
+          demands: Agent.Name -equals $(agentName)
         workspace:
           clean: outputs
         steps:
@@ -231,8 +242,10 @@ stages:
               testResultsFormat: 'XUnit'
               testResultsFiles: '**/testResults.xml'
               searchFolder: '$(Build.SourcesDirectory)/runtime/artifacts/bin'
-              testRunTitle: 'Runtime Test Results'
-              buildPlatform: 'FreeBSD 13.3'
+              failTaskOnFailureToPublishResults: true
+              failTaskOnMissingResultsFile: true
+              testRunTitle: 'Runtime Test Results Run $(runCounter) on $(Agent.Name)'
+              buildPlatform: '$(Agent.Name)'
               buildConfiguration: 'AMD64'
             displayName: Publish XUnit Tests
           - task: PublishTestResults@2
@@ -241,8 +254,10 @@ stages:
               testResultsFormat: 'VSTest'
               testResultsFiles: '**/*Tests*.trx'
               searchFolder: '$(Build.SourcesDirectory)/runtime/artifacts/TestResults/Release/'
-              testRunTitle: 'Runtime Test Results'
-              buildPlatform: 'FreeBSD 13.3'
+              failTaskOnFailureToPublishResults: true
+              failTaskOnMissingResultsFile: true
+              testRunTitle: 'Runtime Test Results Run $(runCounter) on $(Agent.Name)'
+              buildPlatform: '$(Agent.Name)'
               buildConfiguration: 'AMD64'
             displayName: Publish VSTest Tests
           - task: Bash@3
