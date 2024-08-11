@@ -224,14 +224,14 @@ stages:
             condition: eq('${{ parameters.publishArtifacts }}', 'true')
             inputs:
               targetPath: '$(Build.SourcesDirectory)/runtime/artifacts/packages/${{ parameters.buildType }}/Shipping'
-              artifact: 'RuntimePackages-$(runCounter)'
+              artifact: 'RuntimePackages-$(runCounter) on $(Agent.Name)'
               publishLocation: 'pipeline'
             displayName: Publish Runtime Artifacts
           - task: PublishPipelineArtifact@1
             condition: succeededOrFailed()
             inputs:
               targetPath: '$(Build.SourcesDirectory)/runtime/artifacts/log'
-              artifact: 'RuntimeLogs-$(runCounter)-Build_Attempt$(System.JobAttempt)'
+              artifact: 'RuntimeLogs-$(runCounter)-Build_Attempt$(System.JobAttempt) on $(Agent.Name)'
               publishLocation: 'pipeline'
             displayName: Publish Build Logs 
           - task: PublishTestResults@2
