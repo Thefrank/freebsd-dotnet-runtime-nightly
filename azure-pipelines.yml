@@ -188,14 +188,14 @@ stages:
 #No tests: This just builds all legs currently supported by runtime under freebsd-x64
 #Failures here mean something is wrong and needs investigation
           - task: Bash@3
-            condition: eq('${{ parameters.runTests }}', 'none')
+            condition:  not(eq('${{ parameters.runTests }}', 'complete'))
             inputs:
              targetType: 'inline'
              script: |
               set -e
-              runtime/build.sh /p:OfficialBuildId=$(date +%Y%m%d)-99 -ci -c ${{ parameters.buildType }} -subset Clr+Mono+Host.Native+Host.Tools+Host.Pkg+Libs+Packs -bl:$(Build.SourcesDirectory)/runtime/artifacts/log/BuildStep.binlog ${{ parameters.extraParameters }}
+              runtime/build.sh -ci -c ${{ parameters.buildType }} -subset Clr+Mono+Host.Native+Host.Tools+Host.Pkg+Libs+Libs.Tests+Packs -bl:$(Build.SourcesDirectory)/runtime/artifacts/log/BuildStep.binlog ${{ parameters.extraParameters }}
             continueOnError: false
-            displayName: Build Runtime No Tests
+            displayName: Build Runtime
 #Simple tests: This is done in two steps: build everything from 'none'+tests then run tests. 
 #These are more of "does it build" than "does it work correctly" ("smoke tests")
 #Failures here are rare and usually mean the SDK(s) used need updates
@@ -206,8 +206,7 @@ stages:
              script: |
               set -e
               mkdir $(Build.ArtifactStagingDirectory)/TestResults/
-              runtime/build.sh /p:OfficialBuildId=$(date +%Y%m%d)-99 -ci -c ${{ parameters.buildType }} -subset Clr+Mono+Host.Native+Host.Tools+Host.Pkg+Libs+Libs.Tests+Packs -bl:$(Build.SourcesDirectory)/runtime/artifacts/log/BuildStep.binlog ${{ parameters.extraParameters }}
-              runtime/build.sh /p:OfficialBuildId=$(date +%Y%m%d)-99 -ci -c ${{ parameters.buildType }} --test --testnobuild -bl:$(Build.SourcesDirectory)/runtime/artifacts/log/TestStep.binlog
+              runtime/build.sh -ci -c ${{ parameters.buildType }} --test --testnobuild -bl:$(Build.SourcesDirectory)/runtime/artifacts/log/TestStep.binlog
             continueOnError: true
             displayName: Build Runtime Run Simple Tests
 #Complete tests: Builds everything support and all supported tests. Runs all supported tests
@@ -219,7 +218,7 @@ stages:
              script: |
               set -e
               mkdir $(Build.ArtifactStagingDirectory)/TestResults/
-              runtime/build.sh /p:OfficialBuildId=$(date +%Y%m%d)-99 -ci -c ${{ parameters.buildType }} -subset Clr+Mono+Host.Native+Host.Tools+Host.Pkg+Libs+Libs.Tests+Packs --test -bl:$(Build.SourcesDirectory)/runtime/artifacts/log/CombinedStep.binlog ${{ parameters.extraParameters }}
+              runtime/build.sh -ci -c ${{ parameters.buildType }} -subset Clr+Mono+Host.Native+Host.Tools+Host.Pkg+Libs+Libs.Tests+Packs --test -bl:$(Build.SourcesDirectory)/runtime/artifacts/log/CombinedStep.binlog ${{ parameters.extraParameters }}
             continueOnError: true
             displayName: Build Runtime Run Complete Tests
           - task: PublishPipelineArtifact@1
