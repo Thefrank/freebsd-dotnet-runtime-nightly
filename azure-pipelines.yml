@@ -67,7 +67,6 @@ pool:
   name: Default
   demands:
   - agent.os -equals FreeBSD
-  - agent.name -equals 133build
 
 #runtime is where we download the source to build
 #crossbuild is where this downloads all patches it uses
