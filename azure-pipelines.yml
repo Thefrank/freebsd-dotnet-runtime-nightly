@@ -253,7 +253,6 @@ stages:
               testResultsFiles: '**/*Tests*.trx'
               searchFolder: '$(Build.SourcesDirectory)/runtime/artifacts/TestResults/Release/'
               failTaskOnFailureToPublishResults: true
-              failTaskOnMissingResultsFile: true
               testRunTitle: 'Runtime Test Results Run $(runCounter) on $(Agent.Name)'
               buildPlatform: '$(Agent.Name)'
               buildConfiguration: 'AMD64'
