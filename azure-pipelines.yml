@@ -11,6 +11,13 @@ parameters:
   values:
     - amd64-freebsd
     - arm64-freebsd
+- name: targetOSVersion
+  displayName: OS Version
+  type: string
+  default: 13
+  values:
+    - 13
+    - 14
 - name: buildType
   displayName: Type of build (Release/Debug)
   type: string
@@ -143,7 +150,7 @@ stages:
              targetType: 'inline'
              script: |
                set -e
-               echo "##vso[task.setvariable variable=sdkTag]v$(sdkName)-${{ parameters.targetOS }}-$(agentName)"
+               echo "##vso[task.setvariable variable=sdkTag]v$(sdkName)-${{ parameters.targetOS }}-${{ parameters.targetOSVersion }}"
             displayName: Update sdkTag
           - task: DownloadGitHubRelease@0
             inputs:
