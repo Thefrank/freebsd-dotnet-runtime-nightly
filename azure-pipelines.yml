@@ -11,8 +11,8 @@ parameters:
   values:
     - amd64-freebsd
     - arm64-freebsd
-- name: targetOSVersion
-  displayName: OS Version
+- name: targetSDKVersion
+  displayName: SDK OS Version
   type: string
   default: 13
   values:
@@ -94,24 +94,10 @@ variables:
 - name: OSARCH 
   value: ${{ replace(split(parameters.targetOS, '-')[0],'amd64','x64') }}
 
-stages:
-  - stage: Setup
-    dependsOn: []
-    jobs:
-      - job: init
-        timeoutInMinutes: 30
-        workspace:
-          clean: all
-        steps:
-        - bash: |
-            TAG=${{ parameters.runtimeName }}
-            echo "##vso[build.updatebuildnumber]${TAG/\//-}-${{ parameters.targetOS }}-$(agentName)-run-${RUNCOUNTER}"
-            echo "Building ${{ parameters.runtimeName }}-${{ parameters.targetOS }}-$(agentName)"
-          displayName: Set Build Name
 #Timeout at 240min because tests can hang
 #Maxtrix for in-service FreeBSD versions. maxParallel:1 because $
+stages:
   - stage: runtime
-    dependsOn: [Setup]
     jobs:
       - job: runtime
         timeoutInMinutes: 240
@@ -128,6 +114,15 @@ stages:
         workspace:
           clean: outputs
         steps:
+          - task: Bash@3
+            inputs:
+             targetType: 'inline'
+             script: |
+               set -e
+               TAG=${{ parameters.runtimeName }}
+               echo "##vso[build.updatebuildnumber]${TAG/\//-}-${{ parameters.targetOS }}-run-${RUNCOUNTER}"
+               echo "Building ${{ parameters.runtimeName }}-${{ parameters.targetOS }}-$(agentName)"
+            displayName: Set Build Name
           - task: Bash@3
             inputs:
              targetType: 'inline'
@@ -150,7 +145,7 @@ stages:
              targetType: 'inline'
              script: |
                set -e
-               echo "##vso[task.setvariable variable=sdkTag]v$(sdkName)-${{ parameters.targetOS }}-${{ parameters.targetOSVersion }}"
+               echo "##vso[task.setvariable variable=sdkTag]v$(sdkName)-${{ parameters.targetOS }}-${{ parameters.targetSDKVersion }}"
             displayName: Update sdkTag
           - task: DownloadGitHubRelease@0
             inputs:
