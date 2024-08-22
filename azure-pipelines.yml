@@ -158,7 +158,7 @@ stages:
             displayName: Download bootstrap SDK and NuGet
           - checkout: self
           - checkout: runtime
-            fetchDepth: 0
+            fetchDepth: 1
           - checkout: crossbuild
 #patches are for: removing internal-use-only Microsoft feeds. Build using livehost.
 #specific commits can be checked out via `git -C '$(System.StageDisplayName)' reset --hard COMMITID` if `fetchDepth: 0`
