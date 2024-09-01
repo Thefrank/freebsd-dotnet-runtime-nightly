@@ -28,11 +28,7 @@ Things are missing!
 - Every 2-3 weeks the build will break because of upstream dependencies requiring updates. I can usually get to this within a day. If I get too far behind open a ticket.
 
 So, What environment is this actually run under?
-- FreeBSD 13.1-pCurrent AMD64 inside a jail under TrueNAS 13.1
-
-Are there any significant differences between using TrueNAS and FreeBSD?
-- There should not be but I am tracking an issue with dotNET that appears only under TrueNAS and not FreeBSD
-- See here: https://github.com/sec/dotnet-core-freebsd-source-build/issues/15
+- FreeBSD 13.3-pCurrent and FreeBSD 14.1-pCurrent jails.
 
 Is this something I can run myself?
 - Yes, but it needs Azure Pipelines Agent for FreeBSD-x64 (https://github.com/Thefrank/azure-pipelines-agent-freebsd). See the YML file for more information.
