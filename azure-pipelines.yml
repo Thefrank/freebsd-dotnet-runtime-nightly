@@ -170,6 +170,8 @@ stages:
                sed -i.ORI '/\/dnceng\/internal\//d' runtime/NuGet.config
                fetch https://patch-diff.githubusercontent.com/raw/dotnet/runtime/pull/105004.diff
                patch -d runtime -p 1 < 105004.diff
+               fetch https://patch-diff.githubusercontent.com/raw/dotnet/runtime/pull/106302.diff
+               patch -d runtime -p 1 < 106302.diff
             displayName: Patch runtime
           - task: Bash@3
             inputs:
@@ -237,7 +239,7 @@ stages:
               searchFolder: '$(Build.SourcesDirectory)/runtime/artifacts/bin'
               failTaskOnFailureToPublishResults: true
               failTaskOnMissingResultsFile: true
-              testRunTitle: 'Runtime Test Results Run $(runCounter) on $(Agent.Name)'
+              testRunTitle: 'Runtime Test Results Run $(runCounter) Attempt$(System.JobAttempt) on $(Agent.Name)'
               buildPlatform: '$(Agent.Name)'
               buildConfiguration: 'AMD64'
             displayName: Publish XUnit Tests
@@ -248,7 +250,7 @@ stages:
               testResultsFiles: '**/*Tests*.trx'
               searchFolder: '$(Build.SourcesDirectory)/runtime/artifacts/TestResults/Release/'
               failTaskOnFailureToPublishResults: true
-              testRunTitle: 'Runtime Test Results Run $(runCounter) on $(Agent.Name)'
+              testRunTitle: 'Runtime Test Results Run $(runCounter) Attempt$(System.JobAttempt) on $(Agent.Name)'
               buildPlatform: '$(Agent.Name)'
               buildConfiguration: 'AMD64'
             displayName: Publish VSTest Tests
